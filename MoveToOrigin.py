@@ -91,8 +91,12 @@ else:
             shift = App.Vector(0, 0, 0)  # bail and do nothing
             
 print(f'Shift = {shift}')
-base = App.ActiveDocument.getObject(sel.ObjectName).Placement
+
+pl = App.ActiveDocument.getObject(sel.ObjectName).Placement
+gpl = App.ActiveDocument.getObject(sel.ObjectName).getGlobalPlacement()
+gplr = gpl.multiply(pl.inverse())
+locorigin = gplr.inverse().multVec(App.Vector(0., 0., 0.)) #global origin in LCS
 App.ActiveDocument.openTransaction('Undo Move to Origin')
-base.move(-shift)
+App.ActiveDocument.getObject(sel.ObjectName).Placement.move(locorigin-shift)
 App.ActiveDocument.commitTransaction()
 App.ActiveDocument.recompute()
