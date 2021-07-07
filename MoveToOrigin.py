@@ -35,8 +35,46 @@ def centerofmass(subshapes):
     for sh in subshapes:
         mass += sh.Volume
         moment += sh.Volume * sh.CenterOfMass
-    return moment/mass    
+    return moment/mass  
 
+def globalCG(obj, removeLocalOffset=True):
+    '''Find COM of object in global coordinates
+      remove local offset per https://forum.freecadweb.org/viewtopic.php?t=27821'''
+    gpl = obj.getGlobalPlacement()
+    pl = obj.Placement
+    rpl= gpl.multiply(pl.inverse())
+    if removeLocalOffset:
+        return rpl.multVec(obj.Shape.CenterOfMass)
+    else:
+        return gpl.multVec(obj.Shape.CenterOfMass)
+
+
+
+def globalGCGHierarchy(obj):
+    ''' Compute global COM of an object hierarchy'''
+    volume= 0
+    moment = App.Vector(0., 0., 0.)
+    def wrappedGCG(obj): 
+        nonlocal volume, moment
+        if hasattr(obj, 'Shape'):
+            shape = obj.Shape
+            if hasattr(shape, 'CenterOfMass'):
+                print(f'{obj.Name}  {vectorRound(globalCG(obj, True), nDec)}')
+                volume += shape.Volume
+                moment += globalCG(obj, True).multiply(shape.Volume)
+            else:
+                for obj1 in obj.OutList:
+                    if hasattr(obj1, 'Shape'):
+                        wrappedGCG(obj1)
+    wrappedGCG(obj)
+    return (volume, moment)
+
+def vectorRound(v, n):
+    '''Round the output of App.Vector v to n dec places'''
+    return App.Vector(round(v.x, n), round(v.y, n), round(v.z, n))
+  
+isGlobal = False
+nDec = 3
 selt = Gui.Selection.getSelectionEx()
 if len(selt) != 1:
     print('Select one vertex, edge or object\nor three vertices for center of circle')
@@ -81,7 +119,10 @@ else:
             if shape.ShapeType == 'Solid' or shape.ShapeType == 'Shell':
                 shift = shape.CenterOfMass
             elif shape.ShapeType == 'Compound' or shape.ShapeType == 'CompSolid':
-                shift = centerofmass(shape.SubShapes)
+                #shift = centerofmass(shape.SubShapes)
+                vol, mom = globalGCGHierarchy(sel.Object)
+                shift = mom.multiply(1./vol)  # global!
+                isGlobal = True
             #more cases?
             else:
                 print(f'Object ShapeType {sel.Object.Shape.ShapeType} not handled')
@@ -90,11 +131,14 @@ else:
             print(f'{sel.ObjectName} is not a shape')
             shift = App.Vector(0, 0, 0)  # bail and do nothing
             
-print(f'Shift = {shift}')
+
 
 pl = App.ActiveDocument.getObject(sel.ObjectName).Placement
 gpl = App.ActiveDocument.getObject(sel.ObjectName).getGlobalPlacement()
 gplr = gpl.multiply(pl.inverse())
+if isGlobal:
+    shift = gplr.inverse().multVec(shift) # global shift in LCS
+print(f'Shift = {vectorRound(shift,nDec)}')
 locorigin = gplr.inverse().multVec(App.Vector(0., 0., 0.)) #global origin in LCS
 App.ActiveDocument.openTransaction('Undo Move to Origin')
 App.ActiveDocument.getObject(sel.ObjectName).Placement.move(locorigin-shift)
