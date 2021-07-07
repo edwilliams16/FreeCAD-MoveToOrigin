@@ -1,7 +1,7 @@
 __Title__    = "MoveToOrigin"
 __Author__   = "edwilliams16"
-__Version__  = "00.01"
-__Date__     = "2021.6.15"
+__Version__  = "00.02"
+__Date__     = "2021.7.7"
 debug = False
 '''Usage:
 This macro will adjust the placement of a shape to place a selected feature at the origin.
@@ -15,6 +15,8 @@ Shape - CG of shape to origin
 
 If the shape is a BaseFeature inside a body, the base feature's placement in the body is adjusted.
 '''
+# Version 0.01  Original
+# Version 0.02 - now handles objects in nested part containers
 
 def circumcenter(A, B, C):
     '''Return the circumcenter of three 3D vertices'''
